@@ -74,7 +74,7 @@ def cargar_archivos():
                         df_renombrado = df.rename(columns={'Compañía': 'compania', 'Asignación': 'asignacion', 'Código de conductor': 'codigo_conductor', 'Conductor': 'conductor', 'Amplitud del servicio': 'amplitud_servicio', 'Tiempo de producción': 'tiempo_produccion', 'Distancia de producción (m)': 'distancia_produccion', 'Parte de trabajo': 'parte_trabajo', 'Tipo de tarea': 'tipo_tarea'})
                         df_renombrado['codigo_conductor'] = df_renombrado['codigo_conductor'].astype(str).str.zfill(4)
                         df_renombrado['Fecha'] = pd.to_datetime(df_renombrado['Fecha'], format='%d/%m/%Y')
-
+                        df_renombrado = df_renombrado[df_renombrado['parte_trabajo'].notna()]
                         # Columas como string
                         df_renombrado = df_renombrado.astype({
                             'compania': str,
@@ -110,9 +110,20 @@ def cargar_archivos():
                             'trayecto': str
                         })
                         
-                        
-                        df_renombrado.to_sql('programacion_operadores', con=motor, if_exists='append', index=False)
-                        
+                        motor = create_engine(cadena_conexion)
+
+                        def insertar_por_lotes(df, tamaño_lote=5000):
+                            try:
+                                for inicio in range(0, len(df), tamaño_lote):
+                                    fin = inicio + tamaño_lote
+                                    sub_df = df.iloc[inicio:fin]
+                                    sub_df.to_sql('programacion_operadores', con=motor, if_exists='append', index=False)
+                                    print(f"Lote {inicio} - {fin} insertado correctamente")
+                            except SQLAlchemyError as e:
+                                print("Error durante la inserción:", e)
+
+
+                        insertar_por_lotes(df_renombrado)
                         text_output.insert(tk.END, f"Cantidad de registros a insertar: {len(df)}\n")
                         mensaje_resultado.config(text="Los datos se han insertado correctamente en la base de datos", fg="green")
                         text_output.insert(tk.END, "Los datos se han insertado correctamente en la base de datos\n")  # Mostrar mensaje de error en el Text widget
